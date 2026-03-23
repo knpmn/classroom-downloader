@@ -1,6 +1,6 @@
 # classroom-downloader
 
-adds a download button directly on every google drive attachment in google classroom. -  no more opening the file, waiting for drive to load, finding the download button, 
+adds a download button directly on every google drive attachment in google classroom. -  no more opening the file, waiting for drive to load, find the download and click download --> that's like 3 extra step for every file 
 
 works on both the class stream page and individual material/assignment pages.
 
