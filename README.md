@@ -7,6 +7,7 @@ works on both the class stream page and individual material/assignment pages.
 this should be a default feature tbh.
 
 <img width="373" height="82" alt="download button on attachment card" src="https://github.com/user-attachments/assets/f238c4d8-8e3d-48e2-b1c6-d1ed6cc66ce1" />
+<img width="373" height="82" alt="image" src="https://github.com/user-attachments/assets/3e04aea0-c1a3-4384-8ff2-1759db8adb9c" />
 
 ---
 
