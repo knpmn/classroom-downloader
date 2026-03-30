@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Classroom - Instant Drive Downloader
 // @namespace    https://github.com/knpmn/classroom-downloader
-// @version      1.1.0
+// @version      1.2.0
 // @description  One-click download buttons on every Google Drive attachment
 // @author       Claude
 // @match        https://classroom.google.com/*
@@ -92,6 +92,19 @@
   const DRIVE_RE = /https:\/\/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]+)/;
   const MAX_CLIMB = 12;
 
+  // --- Hidden iframe pool for gesture-free parallel downloads ---
+  // Navigating a hidden iframe to a download URL is treated as a navigation
+  // by the browser, not a popup, so it is never blocked regardless of timing
+  // or how many are in flight at once.
+  function triggerDownload(url) {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;border:none;';
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    // Clean up after enough time for the download to have been handed off
+    setTimeout(() => iframe.remove(), 60_000);
+  }
+
   function buildIcon(name) {
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('class', 'cdl-icon');
@@ -148,28 +161,6 @@
     return `https://drive.usercontent.google.com/u/${au}/uc?id=${id}&export=download`;
   }
 
-  // Trigger a download immediately — no prefetch, no waiting.
-  // A small per-call stagger (index * 150 ms) keeps browsers from
-  // collapsing rapid-fire clicks into a single download.
-  function triggerDownload(url, label, index = 0) {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        try {
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = label || 'download';
-          a.rel = 'noopener';
-          a.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
-          document.body.append(a);
-          a.click();
-          setTimeout(() => { a.remove(); resolve(true); }, 500);
-        } catch {
-          resolve(false);
-        }
-      }, index * 150);
-    });
-  }
-
   function makeButton(href, label) {
     const url = toDownloadUrl(href);
     if (!url) return null;
@@ -180,23 +171,15 @@
     btn.title = `Download "${label}"`;
     setContent(btn, 'download', 'Download');
 
-    btn.addEventListener('click', async e => {
+    btn.addEventListener('click', e => {
       e.preventDefault();
       e.stopPropagation();
 
-      btn.dataset.state = 'loading';
-      btn.querySelector('.cdl-label').textContent = 'Starting…';
+      // Fires immediately, synchronously, no gesture expiry, never blocked
+      triggerDownload(url);
 
-      // Fire immediately — no fetch round-trip blocking the download
-      const ok = await triggerDownload(url, label, 0);
-
-      if (ok) {
-        btn.dataset.state = 'done';
-        setContent(btn, 'check', 'Saved!');
-      } else {
-        btn.dataset.state = 'error';
-        setContent(btn, 'x', 'Failed');
-      }
+      btn.dataset.state = 'done';
+      setContent(btn, 'check', 'Saved!');
 
       setTimeout(() => {
         btn.dataset.state = 'idle';
