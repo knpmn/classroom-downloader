@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Classroom - Instant Drive Downloader
 // @namespace    https://github.com/knpmn/classroom-downloader
-// @version      1.0.0
+// @version      1.1.0
 // @description  One-click download buttons on every Google Drive attachment
 // @author       Claude
 // @match        https://classroom.google.com/*
@@ -148,6 +148,28 @@
     return `https://drive.usercontent.google.com/u/${au}/uc?id=${id}&export=download`;
   }
 
+  // Trigger a download immediately — no prefetch, no waiting.
+  // A small per-call stagger (index * 150 ms) keeps browsers from
+  // collapsing rapid-fire clicks into a single download.
+  function triggerDownload(url, label, index = 0) {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        try {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = label || 'download';
+          a.rel = 'noopener';
+          a.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+          document.body.append(a);
+          a.click();
+          setTimeout(() => { a.remove(); resolve(true); }, 500);
+        } catch {
+          resolve(false);
+        }
+      }, index * 150);
+    });
+  }
+
   function makeButton(href, label) {
     const url = toDownloadUrl(href);
     if (!url) return null;
@@ -165,21 +187,13 @@
       btn.dataset.state = 'loading';
       btn.querySelector('.cdl-label').textContent = 'Starting…';
 
-      try {
-        await fetch(url, { method: 'GET', mode: 'no-cors', credentials: 'include' });
+      // Fire immediately — no fetch round-trip blocking the download
+      const ok = await triggerDownload(url, label, 0);
 
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = label || 'download';
-        a.rel = 'noopener';
-        a.style.display = 'none';
-        document.body.append(a);
-        a.click();
-        setTimeout(() => a.remove(), 1000);
-
+      if (ok) {
         btn.dataset.state = 'done';
         setContent(btn, 'check', 'Saved!');
-      } catch {
+      } else {
         btn.dataset.state = 'error';
         setContent(btn, 'x', 'Failed');
       }
@@ -263,13 +277,13 @@
     card.appendChild(btn);
   }
 
-  function scan() {
-    document.querySelectorAll('a[href*="drive.google.com/file/d/"]').forEach(processAnchor);
-  }
-
   function debounce(fn, ms) {
     let t;
     return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+  }
+
+  function scan() {
+    document.querySelectorAll('a[href*="drive.google.com/file/d/"]').forEach(processAnchor);
   }
 
   if (!document.getElementById('cdl-styles')) {
